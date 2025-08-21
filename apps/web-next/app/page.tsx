@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { use, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 
 export default function Home() {
@@ -9,22 +9,28 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] =
     useState<string>("Connecting...");
   const [messages, setMessages] = useState<string[]>([]);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  // const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  function disconnect() {
+  const disconnect = () => {
     setIsConnected(false);
     setConnectionStatus("Disconnected.");
-    if (eventSource) {
-      eventSource.close();
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
       console.log("Connection closed by user.");
     } else {
       console.log("No event source to close.");
     }
-  }
+  };
 
-  useEffect(() => {
+  const connect = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      console.log("Previous event source closed.");
+    }
+
     const eventSource = new EventSource("http://localhost:3000/events");
-    setEventSource(eventSource);
 
     eventSource.onopen = () => {
       console.log("Connection to server established.");
@@ -51,9 +57,21 @@ export default function Home() {
       console.log('Received "counter-update" event:', data);
     });
 
+    eventSourceRef.current = eventSource;
+  };
+
+  const toggleConnection = () => {
+    if (isConnected) {
+      disconnect();
+    } else {
+      connect();
+    }
+  };
+
+  useEffect(() => {
+    connect();
     return () => {
-      eventSource.close();
-      console.log("Connection closed by user.");
+      disconnect();
     };
   }, []);
 
@@ -99,10 +117,13 @@ export default function Home() {
             </ul>
           </div>
           <button
-            onClick={disconnect}
-            className="mt-6 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+            onClick={toggleConnection}
+            className={clsx(
+              "mt-6 w-full  text-white font-bold py-2 px-4 rounded-lg transition duration-200",
+              isConnected ? "bg-red-500  hover:bg-red-600 " : "bg-green-500"
+            )}
           >
-            Disconnect
+            {isConnected ? "Disconnect" : "Connect"}
           </button>
         </div>
       </main>
